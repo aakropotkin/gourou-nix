@@ -41,6 +41,9 @@
       packages = systemsMap ( system:
         let
           pkgsFor = import nixpkgs { inherit system; };
+          support = import ./support.nix {
+            inherit (pkgsFor) stdenv linkFarmFromDrvs;
+          };
         in rec {
           base64 = import ./base64.nix {
             inherit system;
@@ -49,13 +52,12 @@
           };
 
           updfparser =
-            let
-              all = import ./updfparser.nix {
-                inherit (pkgsFor) stdenv;
-                src = updfparser-src;
-              };
-            in pkgsFor.linkFarmFromDrvs "updfparser"
-                                        ( builtins.attrValues all );
+            let full = import ./updfparser.nix {
+                  inherit support;
+                  inherit (pkgsFor) stdenv;
+                  src = updfparser-src;
+                };
+            in full.archives.all;
 
           libgourou = import ./libgourou.nix {
             inherit (pkgsFor) stdenv openssl libzip curl;
