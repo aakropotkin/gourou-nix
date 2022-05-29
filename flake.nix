@@ -54,7 +54,6 @@
           updfparser =
             let full = import ./updfparser.nix {
                   inherit support;
-                  inherit (pkgsFor) stdenv;
                   src = updfparser-src;
                 };
             in full.archives.all;
