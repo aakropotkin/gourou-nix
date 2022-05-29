@@ -56,14 +56,34 @@
             src = updfparser-src;
           } ).all;
 
-          libgourou = import ./libgourou.nix {
-            inherit (pkgsFor) stdenv openssl libzip curl;
-            inherit base64 updfparser;
+          libgourou = ( support.mkCxxLibs {
+            name = "libgourou";
             src = gourou-src;
-            enableStatic = true;
-            enableDebug  = false;
-            disableWall  = true;
-          };
+            files = [
+              ( gourou-src + "/src/libgourou.cpp" )
+              ( gourou-src + "/src/user.cpp" )
+              ( gourou-src + "/src/device.cpp" )
+              ( gourou-src + "/src/fulfillment_item.cpp" )
+              ( gourou-src + "/src/loan_token.cpp" )
+              ( gourou-src + "/src/bytearray.cpp" )
+              ( pugixml-src + "/src/pugixml.cpp" )
+            ];
+            includes = [
+              ( gourou-src + "/include" )
+              ( pugixml-src + "/src" )
+              ( updfparser-src + "/include" )
+              "${base64}/include"
+              "${pkgsFor.openssl.dev}/include"
+              "${pkgsFor.libzip.dev}/include"
+              "${pkgsFor.curl.dev}/include"
+            ];
+            optArgOverride = prev: prev // {
+              cxxLinkFlags = ["${updfparser}/libupdfparser.so"];
+            };
+            dbgArgOverride = prev: prev // {
+              cxxLinkFlags = ["${updfparser}/libupdfparser.dbg.so"];
+            };
+          } ).all;
 
           default = libgourou;
         }

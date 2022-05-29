@@ -36,7 +36,7 @@ let
 
 in rec {
 
-  inherit linkFarmFromDrvs stdenv;
+  inherit linkFarmFromDrvs stdenv listFiles;
 
   ccDebugFlags = ["-O0" "-ggdb"];
   ccOptFlags  = ["-O2"];
@@ -145,7 +145,7 @@ in rec {
   # rather than split into separate arguments.
   , earlyLdFlags   ? []
   , defaultLdFlags ? ["-Wl,-soname,${soname}"]
-  , ldFlags        ? []
+  , ldFlags        ? ["-Wl,-z,defs,--no-allow-shlib-undefined"]
   }:
   let
     inherit (builtins) filter isString split concatStringsSep;
