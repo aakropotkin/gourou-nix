@@ -12,9 +12,15 @@ let
   objName = file: ( baseNameOfDropExt file ) + ".o";
   objNames = sources: builtins.concatStringsSep " " ( map objName sources );
 
+
+/* -------------------------------------------------------------------------- */
+
   # Fixup flags that weren't properly split on spaces.
   splitFlags' = f: builtins.filter builtins.isString ( builtins.split " " f );
   splitFlags = fs: builtins.concatMap splitFlags' fs;
+
+
+/* -------------------------------------------------------------------------- */
 
   listFiles = dir:
     let
@@ -25,17 +31,18 @@ let
       files = attrValues ( mapAttrs process ( readDir dir ) );
     in filter ( x: x != null ) files;
 
+
+/* -------------------------------------------------------------------------- */
+
 in rec {
+
+  inherit linkFarmFromDrvs stdenv;
 
   ccDebugFlags = ["-O0" "-ggdb"];
   ccOptFlags  = ["-O2"];
 
-  mkArchive = name: files: derivation {
-    inherit name files;
-    inherit (stdenv) system;
-    builder = "${stdenv.cc.bintools.bintools_bin}/bin/ar";
-    args = ["crs" ( builtins.placeholder "out" )] ++ ( map toString files );
-  };
+
+/* -------------------------------------------------------------------------- */
 
   compileCxx = flags: file: derivation {
     name = if ( builtins.isString file ) then objName file else "cxx-obj.o";
@@ -47,6 +54,19 @@ in rec {
       "-o" ( builtins.placeholder "out" )
     ] ++ ( splitFlags flags );
   };
+
+
+/* -------------------------------------------------------------------------- */
+
+  mkArchive = name: files: derivation {
+    inherit name files;
+    inherit (stdenv) system;
+    builder = "${stdenv.cc.bintools.bintools_bin}/bin/ar";
+    args = ["crs" ( builtins.placeholder "out" )] ++ ( map toString files );
+  };
+
+
+/* -------------------------------------------------------------------------- */
 
   compileCxxArchive = name: flags: files:
     mkArchive name ( map ( compileCxx flags ) files );
@@ -83,6 +103,8 @@ in rec {
                            [opt.static opt.pic dbg.static dbg.pic];
   };
 
+/* -------------------------------------------------------------------------- */
+
   sourceDrv = name: src: derivation {
     inherit name;
     inherit (stdenv) system;
@@ -95,5 +117,65 @@ in rec {
       ( builtins.placeholder "out" )
     ];
   };
+
+
+/* -------------------------------------------------------------------------- */
+
+  # FIXME: ".so" assumes ELF libraries on Linux, Darwin will shit the bed here.
+  # Flag ordering is:
+  #   CXX ${earlyCxxLinkFlags}   ${earlyLdFlags}    \
+  #       ${defaultCxxLinkFlags} ${defaultLdFlags}  \
+  #       -Wl,--push-state,--whole-archive          \
+  #       ${picArchive} -Wl,--pop-state             \
+  #       ${cxxLinkFlags} ${ldFlags}                \
+  #       -o $out
+  mkCxxSharedLibrary = {
+    name       ? ( baseNameOfDropExt picArchive.name ) + ".so"
+  , soname     ? name
+  , picArchive
+
+  # Passed to the CXX compiler.
+  # These are commonly flags like `-shared', `-f<...>', `-L<PATH>, or `-l<LIB>'.
+  , earlyCxxLinkFlags   ? []           # Added before PIC archive.
+  , defaultCxxLinkFlags ? ["-shared"]  # Added before PIC archive.
+  , cxxLinkFlags        ? []           # Added after PIC archive.
+
+  # Passed through to link-editor by CXX compiler.
+  # `-Wl,<FLAG>' is added if missing, and spaces will be replaced by commas
+  # rather than split into separate arguments.
+  , earlyLdFlags   ? []
+  , defaultLdFlags ? ["-Wl,-soname,${soname}"]
+  , ldFlags        ? []
+  }:
+    let
+      inherit (builtins) filter isString split concatStringsSep;
+      fixupWlPrefix = s: let inherit (builtins) substring; in
+        if ( ( substring 0 4 s ) != "-Wl," ) then ( "-Wl," + s ) else s;
+      fixupLdFlag = s:
+        let cms = concatStringsSep "," ( filter isString ( split " +" s ) );
+        in fixupWlPrefix cms;
+
+      earlyCxxLinkFlags'   = splitFlags earlyCxxLinkFlags;
+      defaultCxxLinkFlags' = splitFlags defaultCxxLinkFlags;
+      cxxLinkFlags'        = splitFlags cxxLinkFlags;
+
+      earlyLdFlags'   = map fixupLdFlag earlyLdFlags;
+      defaultLdFlags' = map fixupLdFlag defaultLdFlags;
+      ldFlags'        = map fixupLdFlag ldFlags;
+    in derivation {
+      inherit name soname picArchive;
+      inherit (stdenv) system;
+      builder = "${stdenv.cc}/bin/g++";
+      args = earlyCxxLinkFlags' ++ earlyLdFlags' ++
+             defaultCxxLinkFlags' ++ defaultLdFlags' ++ [
+               "-o" ( builtins.placeholder "out" )
+               "-Wl,--push-state,--whole-archive"
+               ( toString picArchive )
+               "-Wl,--pop-state"
+             ] ++ cxxLinkFlags' ++ ldFlags';
+    };
+
+
+/* -------------------------------------------------------------------------- */
 
 }

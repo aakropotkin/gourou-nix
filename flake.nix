@@ -54,7 +54,7 @@
           updfparser = ( import ./updfparser.nix {
             inherit support;
             src = updfparser-src;
-          } ).archives.all;
+          } ).all;
 
           libgourou = import ./libgourou.nix {
             inherit (pkgsFor) stdenv openssl libzip curl;
