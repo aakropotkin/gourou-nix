@@ -183,7 +183,7 @@ in rec {
   , optPicArchive
   , dbgPicArchive
 
-  , commonArgs ? { soname = name + ".so"; }
+  , commonArgs     ? { soname = name + ".so"; }
   , optArgOverride ? ( prev: prev )
   , dbgArgOverride ? ( prev: prev )
 

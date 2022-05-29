@@ -60,25 +60,23 @@
             name = "libgourou";
             src = gourou-src;
             files = [
-              ( gourou-src + "/src/libgourou.cpp" )
-              ( gourou-src + "/src/user.cpp" )
-              ( gourou-src + "/src/device.cpp" )
-              ( gourou-src + "/src/fulfillment_item.cpp" )
-              ( gourou-src + "/src/loan_token.cpp" )
-              ( gourou-src + "/src/bytearray.cpp" )
-              ( pugixml-src + "/src/pugixml.cpp" )
+              "${gourou-src}/src/libgourou.cpp"
+              "${gourou-src}/src/user.cpp"
+              "${gourou-src}/src/device.cpp"
+              "${gourou-src}/src/fulfillment_item.cpp"
+              "${gourou-src}/src/loan_token.cpp"
+              "${gourou-src}/src/bytearray.cpp"
+              "${pugixml-src}/src/pugixml.cpp"
             ];
             includes = [
-              ( gourou-src + "/include" )
-              ( pugixml-src + "/src" )
-              ( updfparser-src + "/include" )
-              ( base64 + "/include" )
+              "${base64}/include"
+              "${gourou-src}/include"
+              "${pugixml-src}/src"
+              "${updfparser-src}/include"
             ];
-            optArgOverride = prev: prev // {
+            commonArgs = {
+              soname = "libgourou.so";
               cxxLinkFlags = ["${updfparser}/libupdfparser.so"];
-            };
-            dbgArgOverride = prev: prev // {
-              cxxLinkFlags = ["${updfparser}/libupdfparser.dbg.so"];
             };
           } ).all;
 
