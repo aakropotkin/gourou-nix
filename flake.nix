@@ -51,12 +51,10 @@
             src = base64-src;
           };
 
-          updfparser =
-            let full = import ./updfparser.nix {
-                  inherit support;
-                  src = updfparser-src;
-                };
-            in full.archives.all;
+          updfparser = ( import ./updfparser.nix {
+            inherit support;
+            src = updfparser-src;
+          } ).archives.all;
 
           libgourou = import ./libgourou.nix {
             inherit (pkgsFor) stdenv openssl libzip curl;
