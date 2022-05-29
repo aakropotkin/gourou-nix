@@ -51,8 +51,8 @@
             src = base64-src;
           };
 
-          updfparser = ( import ./updfparser.nix {
-            inherit support;
+          updfparser = ( support.mkCxxLibs {
+            name = "libupdfparser";
             src = updfparser-src;
           } ).all;
 

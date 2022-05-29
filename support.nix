@@ -129,7 +129,7 @@ in rec {
   #       ${picArchive} -Wl,--pop-state             \
   #       ${cxxLinkFlags} ${ldFlags}                \
   #       -o $out
-  mkCxxSharedLibrary = {
+  cxxSharedLibraryFromArchive = {
     name       ? ( baseNameOfDropExt picArchive.name ) + ".so"
   , soname     ? name
   , picArchive
@@ -147,32 +147,82 @@ in rec {
   , defaultLdFlags ? ["-Wl,-soname,${soname}"]
   , ldFlags        ? []
   }:
+  let
+    inherit (builtins) filter isString split concatStringsSep;
+    fixupWlPrefix = s: let inherit (builtins) substring; in
+      if ( ( substring 0 4 s ) != "-Wl," ) then ( "-Wl," + s ) else s;
+    fixupLdFlag = s:
+      let cms = concatStringsSep "," ( filter isString ( split " +" s ) );
+      in fixupWlPrefix cms;
+
+    earlyCxxLinkFlags'   = splitFlags earlyCxxLinkFlags;
+    defaultCxxLinkFlags' = splitFlags defaultCxxLinkFlags;
+    cxxLinkFlags'        = splitFlags cxxLinkFlags;
+
+    earlyLdFlags'   = map fixupLdFlag earlyLdFlags;
+    defaultLdFlags' = map fixupLdFlag defaultLdFlags;
+    ldFlags'        = map fixupLdFlag ldFlags;
+  in derivation {
+    inherit name soname picArchive;
+    inherit (stdenv) system;
+    builder = "${stdenv.cc}/bin/g++";
+    args = earlyCxxLinkFlags' ++ earlyLdFlags' ++
+            defaultCxxLinkFlags' ++ defaultLdFlags' ++ [
+              "-o" ( builtins.placeholder "out" )
+              "-Wl,--push-state,--whole-archive"
+              ( toString picArchive )
+              "-Wl,--pop-state"
+            ] ++ cxxLinkFlags' ++ ldFlags';
+  };
+
+  cxxSharedLibsFromArchives = {
+    name ? ( baseNameOfDropExt optPicArchive.name )
+  , optPicArchive
+  , dbgPicArchive
+
+  , commonArgs ? { soname = name + ".so"; }
+  , optArgOverride ? ( prev: prev )
+  , dbgArgOverride ? ( prev: prev )
+
+  , defaultOptArgOverride ? ( prev: prev // {
+      name = name + ".so";
+      picArchive = optPicArchive;
+  } )
+  , defaultDbgArgOverride ? ( prev: prev // {
+      name = name + ".dbg.so";
+      picArchive = dbgPicArchive;
+    } )
+  }:
+  let
+    optArgs = optArgOverride ( defaultOptArgOverride commonArgs );
+    dbgArgs = dbgArgOverride ( defaultDbgArgOverride commonArgs );
+
+    opt = cxxSharedLibraryFromArchive optArgs;
+    dbg = cxxSharedLibraryFromArchive dbgArgs;
+  in {
+    inherit opt dbg;
+    all = linkFarmFromDrvs name [opt dbg];
+  };
+
+
+/* -------------------------------------------------------------------------- */
+
+  mkCxxLibs = args@{ name, src, ... }:
     let
-      inherit (builtins) filter isString split concatStringsSep;
-      fixupWlPrefix = s: let inherit (builtins) substring; in
-        if ( ( substring 0 4 s ) != "-Wl," ) then ( "-Wl," + s ) else s;
-      fixupLdFlag = s:
-        let cms = concatStringsSep "," ( filter isString ( split " +" s ) );
-        in fixupWlPrefix cms;
-
-      earlyCxxLinkFlags'   = splitFlags earlyCxxLinkFlags;
-      defaultCxxLinkFlags' = splitFlags defaultCxxLinkFlags;
-      cxxLinkFlags'        = splitFlags cxxLinkFlags;
-
-      earlyLdFlags'   = map fixupLdFlag earlyLdFlags;
-      defaultLdFlags' = map fixupLdFlag defaultLdFlags;
-      ldFlags'        = map fixupLdFlag ldFlags;
-    in derivation {
-      inherit name soname picArchive;
-      inherit (stdenv) system;
-      builder = "${stdenv.cc}/bin/g++";
-      args = earlyCxxLinkFlags' ++ earlyLdFlags' ++
-             defaultCxxLinkFlags' ++ defaultLdFlags' ++ [
-               "-o" ( builtins.placeholder "out" )
-               "-Wl,--push-state,--whole-archive"
-               ( toString picArchive )
-               "-Wl,--pop-state"
-             ] ++ cxxLinkFlags' ++ ldFlags';
+      inherit (builtins) intersectAttrs functionArgs;
+      aflags = intersectAttrs ( functionArgs mkCxxArchives ) args;
+      archives = mkCxxArchives aflags;
+      sflags = intersectAttrs ( functionArgs cxxSharedLibsFromArchives ) args;
+      sharedLibs = cxxSharedLibsFromArchives ( sflags // {
+        optPicArchive = archives.opt.pic;
+        dbgPicArchive = archives.dbg.pic;
+      } );
+    in {
+      inherit archives sharedLibs;
+      all = linkFarmFromDrvs ( name + "-lib" ) [
+        archives.opt.static archives.opt.pic sharedLibs.opt
+        archives.dbg.static archives.dbg.pic sharedLibs.dbg
+      ];
     };
 
 
