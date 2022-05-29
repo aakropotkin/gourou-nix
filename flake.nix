@@ -44,6 +44,11 @@
           support = import ./support.nix {
             inherit (pkgsFor) stdenv linkFarmFromDrvs;
           };
+          libupdfparser = support.mkCxxLibs {
+            name = "libupdfparser";
+            src = updfparser-src;
+          };
+          updfOv = support.mkLibOverride libupdfparser;
         in rec {
           base64 = import ./base64.nix {
             inherit system;
@@ -51,10 +56,7 @@
             src = base64-src;
           };
 
-          updfparser = ( support.mkCxxLibs {
-            name = "libupdfparser";
-            src = updfparser-src;
-          } ).all;
+          updfparser = libupdfparser.all;
 
           libgourou = ( support.mkCxxLibs {
             name = "libgourou";
@@ -74,10 +76,8 @@
               "${pugixml-src}/src"
               "${updfparser-src}/include"
             ];
-            commonArgs = {
-              soname = "libgourou.so";
-              cxxLinkFlags = ["${updfparser}/libupdfparser.so"];
-            };
+            optArgOverride = updfOv "opt";
+            dbgArgOverride = updfOv "dbg";
           } ).all;
 
           default = libgourou;

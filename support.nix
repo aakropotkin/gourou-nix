@@ -154,9 +154,9 @@ in rec {
     inherit (builtins) filter isString split concatStringsSep;
     fixupWlPrefix = s: let inherit (builtins) substring; in
       if ( ( substring 0 4 s ) != "-Wl," ) then ( "-Wl," + s ) else s;
-    fixupLdFlag = s:
-      let cms = concatStringsSep "," ( filter isString ( split " +" s ) );
-      in fixupWlPrefix cms;
+    fixupLdFlag = flag:
+      let cms = s: concatStringsSep "," ( filter isString ( split " +" s ) );
+      in fixupWlPrefix ( cms ( toString flag ) );
 
     earlyCxxLinkFlags'   = splitFlags earlyCxxLinkFlags;
     defaultCxxLinkFlags' = splitFlags defaultCxxLinkFlags;
@@ -184,21 +184,22 @@ in rec {
   , dbgPicArchive
 
   , commonArgs     ? { soname = name + ".so"; }
-  , optArgOverride ? ( prev: prev )
-  , dbgArgOverride ? ( prev: prev )
+  , optArgOverride ? ( prev: {} )
+  , dbgArgOverride ? ( prev: {} )
 
-  , defaultOptArgOverride ? ( prev: prev // {
+  , defaultOptArgOverride ? ( prev: {
       name = name + ".so";
       picArchive = optPicArchive;
   } )
-  , defaultDbgArgOverride ? ( prev: prev // {
+  , defaultDbgArgOverride ? ( prev: {
       name = name + ".dbg.so";
       picArchive = dbgPicArchive;
     } )
   }:
   let
-    optArgs = optArgOverride ( defaultOptArgOverride commonArgs );
-    dbgArgs = dbgArgOverride ( defaultDbgArgOverride commonArgs );
+    composeOvs = builtins.foldl' ( a: o: a // ( o a ) );
+    optArgs = composeOvs commonArgs [defaultOptArgOverride optArgOverride];
+    dbgArgs = composeOvs commonArgs [defaultDbgArgOverride dbgArgOverride];
 
     opt = cxxSharedLibraryFromArchive optArgs;
     dbg = cxxSharedLibraryFromArchive dbgArgs;
@@ -206,6 +207,15 @@ in rec {
     inherit opt dbg;
     all = linkFarmFromDrvs name [opt dbg];
   };
+
+
+/* -------------------------------------------------------------------------- */
+
+  mkLibOverride = libs: flavor:
+    let shLibs = if ( libs ? sharedLibs ) then libs.sharedLibs else libs;
+    in prev: {
+      cxxLinkFlags = ( prev.cxxLinkFlags or [] ) ++ [shLibs.${flavor}.outPath];
+    };
 
 
 /* -------------------------------------------------------------------------- */
