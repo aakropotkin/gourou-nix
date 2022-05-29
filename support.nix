@@ -2,11 +2,14 @@
 let
 
   baseName' = p: with builtins;
-    if ( isPath p ) then ( baseNameOf p ) else
-      if ( isString p ) then
-        ( if ( hasContext p ) then ( head ( match "[^-]*-(.*)" p ) )
-                              else ( baseNameOf p ) )
-      else throw "Cannot take basename of type: ${typeOf p}";
+    let
+      p' = unsafeDiscardStringContext ( baseNameOf p );
+      fromDrvName = head ( match "[^-]*-(.*)" p' );
+      hasSlash = ( dirOf p' ) != ".";
+      handleString =
+        if ( hasSlash && ( hasContext p ) ) then fromDrvName else p';
+    in if ( isPath p ) then p' else if ( isString p ) then handleString else
+        throw "Cannot take basename of type: ${typeOf p}";
 
   baseNameOfDropExt = p: builtins.head ( builtins.split "." ( baseName' p ) );
   objName = file: ( baseNameOfDropExt file ) + ".o";
@@ -45,7 +48,7 @@ in rec {
 /* -------------------------------------------------------------------------- */
 
   compileCxx = flags: file: derivation {
-    name = if ( builtins.isString file ) then objName file else "cxx-obj.o";
+    name = baseName' file;
     inherit (stdenv) system;
     inherit flags file;
     builder = "${stdenv.cc}/bin/g++";

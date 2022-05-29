@@ -72,10 +72,7 @@
               ( gourou-src + "/include" )
               ( pugixml-src + "/src" )
               ( updfparser-src + "/include" )
-              "${base64}/include"
-              "${pkgsFor.openssl.dev}/include"
-              "${pkgsFor.libzip.dev}/include"
-              "${pkgsFor.curl.dev}/include"
+              ( base64 + "/include" )
             ];
             optArgOverride = prev: prev // {
               cxxLinkFlags = ["${updfparser}/libupdfparser.so"];
