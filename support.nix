@@ -2,7 +2,7 @@
 let
 
   baseNameOfDropExt = p:
-    builtins.head ( builtins.split "." ( baseNameOf ( toString p ) ) );
+    builtins.head ( builtins.split "[-.]" ( baseNameOf ( toString p ) ) );
   objName = file: ( baseNameOfDropExt file ) + ".o";
   objNames = sources: builtins.concatStringsSep " " ( map objName sources );
 
@@ -12,21 +12,24 @@ let
 
 in rec {
 
+  ccDebugFlags = ["-O0" "-ggdb"];
+  ccProdFlags  = ["-O2"];
+
   mkArchive = name: files: derivation {
     inherit name files;
     inherit (stdenv) system;
     builder = "${stdenv.cc.bintools.bintools_bin}/bin/ar";
-    args = ["crs" ( builtins.placeholder "out" )] ++ [files];
+    args = ["crs" ( builtins.placeholder "out" )] ++ ( map toString files );
   };
 
   compileCxx = flags: file: derivation {
-    name = objName file;
-    inherit flags file;
+    name = if ( builtins.isString file ) then objName file else "cxx-obj.o";
     inherit (stdenv) system;
+    inherit flags file;
     builder = "${stdenv.cc}/bin/g++";
     args = [
+      "-c" ( toString file )
       "-o" ( builtins.placeholder "out" )
-      "-c" file
     ] ++ ( splitFlags flags );
   };
 

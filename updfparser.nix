@@ -1,44 +1,15 @@
-{ stdenv, src, enableDebug ? false, /* enableStatic ? false */ }:
-stdenv.mkDerivation {
-  pname = "updfparser";
-  version = "1.6.25-dev";
-  inherit src enableDebug;
-  outputs = ["out" "dev"];
-  makeFlags = ["BUILD_STATIC=1"];
-  configurePhase = ''
-    runHook preConfigure
-    : "''${enableDebug=0}"
-    test "$enableDebug" != 0 && makeFlagsArray+=( DEBUG=1 )
-    runHook postConfigure
-  '';
-  checkPhase = ''
-    runHook preCheck
-    make test && ./test
-    runHook postCheck
-  '';
-  pkgConfigDef = ''
-    prefix=@out@
-    exec_prefix=''${prefix}
-    dev_prefix=@dev@
-    libdir=''${prefix}/lib
-    dev_libdir=''${dev_prefix}/lib
-    includedir=''${dev_prefix}/include
-
-    Name: updfparser
-    Description: updfparser
-    Version: 1.6.25-dev
-    Libs: -L''${dev_libdir} -L''${libdir} -lupdfparser
-    Cflags: -I''${includedir}
-  '';
-  passAsFile = ["pkgConfigDef"];
-  installPhase = ''
-    runHook preInstall
-    mkdir -p $out/lib $dev/lib/pkgconfig $dev
-    mv -- libupdfparser.so $out/lib/
-    mv include $dev/
-    mv -- libupdfparser.a $dev/lib/
-    substitute $pkgConfigDefPath $dev/lib/pkgconfig/updfparser.pc  \
-              --subst-var out --subst-var dev
-    runHook postInstall
-  '';
+{ stdenv , src , support ? import ./support.nix { inherit stdenv; } }:
+let
+  inherit (support) compileCxxStaticArchive compileCxxPicArchive;
+  inherit (support) ccProdFlags ccDebugFlags;
+  includes    = [( src + "/include" )];
+  sources     = map ( p: src + "/src/" + p ) ["uPDFParser.cpp" "uPDFTypes.cpp"];
+  incFlags    = map ( p: "-I" + p ) includes;
+  cxxFlags    = incFlags ++ ccProdFlags;
+  cxxDbgFlags = incFlags ++ ccDebugFlags;
+in {
+  static = compileCxxStaticArchive "libupdfparser.a" cxxFlags sources;
+  pic = compileCxxPicArchive "libupdfparser.pic.a" cxxFlags sources;
+  static-dbg = compileCxxStaticArchive "libupdfparser-dbg.a" cxxDbgFlags sources;
+  pic-dbg = compileCxxPicArchive "libupdfparser-dbg.pic.a" cxxDbgFlags sources;
 }

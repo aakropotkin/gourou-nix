@@ -11,7 +11,11 @@
 , disableWall  ? false
 }:
 let
+# From `pugixml' we only need `pugixml.[ch]pp', and `pugiconfig.hpp'
 
+# g++ obj/*.o ./lib/updfparser/libupdfparser.a -o libgourou.so -shared
+# g++ $CXX_FLAGS acsmdownloader.cpp utils.a -L/data/repos/libgourou -lcrypto  \
+#     -lzip -lz -lcurl -lgourou -o acsmdownloader
 in stdenv.mkDerivation rec {
   pname = "libgourou";
   version = "0.7.1";
