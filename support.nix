@@ -52,7 +52,8 @@ let
       slen = builtins.stringLength sfx;
       suffstring = l: str: let sl = builtins.stringLength str; in
         builtins.substring ( sl - l ) sl str;
-      hasSfx = s: ( suffstring slen s ) == sfx;
+      hasSfx = s:
+        ( slen <= ( builtins.stringLength s ) ) && ( suffstring slen s ) == sfx;
       matches = builtins.filter hasSfx ( builtins.attrNames fs );
     in ( toString dir ) + "/" + ( builtins.head matches );
 
