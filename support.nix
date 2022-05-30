@@ -25,6 +25,12 @@ let
   splitFlags' = f: builtins.filter builtins.isString ( builtins.split " " f );
   splitFlags = fs: builtins.concatMap splitFlags' fs;
 
+  fixupWlPrefix = s:
+    if ( ( builtins.substring 0 4 s ) != "-Wl," ) then ( "-Wl," + s ) else s;
+  fixupLdFlag = flag: with builtins;
+    let cms = s: concatStringsSep "," ( filter isString ( split " +" s ) );
+    in fixupWlPrefix ( cms ( toString flag ) );
+
 
 /* -------------------------------------------------------------------------- */
 
@@ -59,6 +65,46 @@ in rec {
       "-c" ( toString file )
       "-o" ( builtins.placeholder "out" )
     ] ++ ( splitFlags flags );
+  };
+
+
+/* -------------------------------------------------------------------------- */
+
+  linkCxxExecutable = {
+    name
+  , files  # Must define `main'
+  # Passed to the CXX compiler.
+  # These are commonly flags like `-shared', `-f<...>', `-L<PATH>, or `-l<LIB>'.
+  , earlyCxxLinkFlags   ? []  # Added before PIC archive.
+  , defaultCxxLinkFlags ? []  # Added before PIC archive.
+  , cxxLinkFlags        ? []  # Added after PIC archive.
+
+  # Passed through to link-editor by CXX compiler.
+  # `-Wl,<FLAG>' is added if missing, and spaces will be replaced by commas
+  # rather than split into separate arguments.
+  , earlyLdFlags   ? []
+  , defaultLdFlags ? []
+  , ldFlags        ? []
+  }:
+  let
+    earlyCxxLinkFlags'   = splitFlags earlyCxxLinkFlags;
+    defaultCxxLinkFlags' = splitFlags defaultCxxLinkFlags;
+    cxxLinkFlags'        = splitFlags cxxLinkFlags;
+    earlyLdFlags'   = map fixupLdFlag earlyLdFlags;
+    defaultLdFlags' = map fixupLdFlag defaultLdFlags;
+    ldFlags'        = map fixupLdFlag ldFlags;
+  in derivation {
+    inherit (stdenv) system;
+    inherit name files;
+    inherit earlyCxxLinkFlags earlyLdFlags;
+    inherit defaultCxxLinkFlags defaultLdFlags;
+    inherit cxxLinkFlags ldFlags;
+    builder = "${stdenv.cc}/bin/g++";
+    args = earlyCxxLinkFlags' ++ earlyLdFlags' ++
+           defaultCxxLinkFlags' ++ defaultLdFlags' ++
+           ["-o" ( builtins.placeholder "out" )] ++
+           ( map toString files )
+           ++ cxxLinkFlags' ++ ldFlags';
   };
 
 
@@ -154,17 +200,9 @@ in rec {
   , ldFlags        ? ["-Wl,-z,defs,--no-allow-shlib-undefined"]
   }:
   let
-    inherit (builtins) filter isString split concatStringsSep;
-    fixupWlPrefix = s: let inherit (builtins) substring; in
-      if ( ( substring 0 4 s ) != "-Wl," ) then ( "-Wl," + s ) else s;
-    fixupLdFlag = flag:
-      let cms = s: concatStringsSep "," ( filter isString ( split " +" s ) );
-      in fixupWlPrefix ( cms ( toString flag ) );
-
     earlyCxxLinkFlags'   = splitFlags earlyCxxLinkFlags;
     defaultCxxLinkFlags' = splitFlags defaultCxxLinkFlags;
     cxxLinkFlags'        = splitFlags cxxLinkFlags;
-
     earlyLdFlags'   = map fixupLdFlag earlyLdFlags;
     defaultLdFlags' = map fixupLdFlag defaultLdFlags;
     ldFlags'        = map fixupLdFlag ldFlags;
@@ -173,12 +211,12 @@ in rec {
     inherit (stdenv) system;
     builder = "${stdenv.cc}/bin/g++";
     args = earlyCxxLinkFlags' ++ earlyLdFlags' ++
-            defaultCxxLinkFlags' ++ defaultLdFlags' ++ [
-              "-o" ( builtins.placeholder "out" )
-              "-Wl,--push-state,--whole-archive"
-              ( toString picArchive )
-              "-Wl,--pop-state"
-            ] ++ cxxLinkFlags' ++ ldFlags';
+           defaultCxxLinkFlags' ++ defaultLdFlags' ++ [
+             "-o" ( builtins.placeholder "out" )
+             "-Wl,--push-state,--whole-archive"
+             ( toString picArchive )
+             "-Wl,--pop-state"
+           ] ++ cxxLinkFlags' ++ ldFlags';
   };
 
   cxxSharedLibsFromArchives = {

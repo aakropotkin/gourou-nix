@@ -95,17 +95,24 @@
               flags = ( builtins.head ( utils.opt.static.files ) ).flags;
               compileMain = f:
                 support.compileCxx flags "${gourou-src}/utils/${f}.cpp";
-              bins = map ( b: { name = b; value = compileMain b; } ) [
+              binObjs = map ( b: { name = b; value = compileMain b; } ) [
                 "acsmdownloader"
                 "adept_activate"
                 "adept_remove"
                 "adept_loan_mgt"
               ];
-            in builtins.listToAttrs bins;
+            in map ( x: x.value ) binObjs;
+
+          mkBin = deps: obj:
+            support.linkCxxExecutable {
+              inherit (obj) name;
+              files = [obj.outPath] ++ deps;
+            };
+
+          bins = map ( mkBin [utils.opt.static.outPath] ) toolObjs;
 
         in rec {
-          inherit utils toolObjs;
-          gourou = libgourou.all; # FIXME
+          gourou = pkgsFor.linkFarmFromDrvs "gourou-utils" bins;
           default = gourou;
         }
       );
