@@ -163,8 +163,6 @@
                 "${pkgsFor.pkgsStatic.openssl.out}/lib/libcrypto.a"
                 "${pkgsFor.pkgsStatic.curl.out}/lib/libcurl.a"
                 "${pkgsFor.pkgsStatic.openssl.out}/lib/libssl.a"
-                #"${pkgsFor.pkgsStatic.stdenv.cc.libc_lib}/lib/libm.a"
-                #"${pkgsFor.pkgsStatic.stdenv.cc.libc_lib}/lib/libc.a"
                 "-static-libgcc"
                 "-static-libstdc++"
                 "-Wl,--end-group"
