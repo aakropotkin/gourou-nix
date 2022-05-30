@@ -65,6 +65,7 @@ in rec {
       "-c" ( toString file )
       "-o" ( builtins.placeholder "out" )
     ] ++ ( splitFlags flags );
+    preferLocalBuild = true;
   };
 
 
@@ -115,6 +116,7 @@ in rec {
     inherit (stdenv) system;
     builder = "${stdenv.cc.bintools.bintools_bin}/bin/ar";
     args = ["crs" ( builtins.placeholder "out" )] ++ ( map toString files );
+    preferLocalBuild = true;
   };
 
 
@@ -168,6 +170,7 @@ in rec {
       ( toString src )
       ( builtins.placeholder "out" )
     ];
+    preferLocalBuild = true;
   };
 
 
@@ -288,6 +291,8 @@ in rec {
     builder = "${stdenv.shell}";
     PATH = "${stdenv.cc.coreutils_bin}/bin";
     args = ["-c" ''mkdir -p "$out"; ln -s ${path} "$out/bin"''];
+    preferLocalBuild = true;
+    allowSubstitutes = false;
   };
 
   mkBinDir = name: bins:
