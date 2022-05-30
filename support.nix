@@ -157,7 +157,7 @@ in rec {
 
 /* -------------------------------------------------------------------------- */
 
-  sourceDrv = name: src: derivation {
+  copySourceToStore = name: src: derivation {
     inherit name;
     inherit (stdenv) system;
     builder = "${stdenv.cc.coreutils_bin}/bin/cp";
@@ -169,6 +169,20 @@ in rec {
       ( builtins.placeholder "out" )
     ];
   };
+
+
+/* -------------------------------------------------------------------------- */
+
+  mkBinLink = name: path: derivation {
+    inherit name;
+    inherit (stdenv) system;
+    builder = stdenv.shell;
+    PATH = "${stdenv.cc.coreutils_bin}/bin";
+    args = ["-c" ''mkdir -p "$out"; ln -s ${path} "$out/bin"''];
+  };
+
+  mkBinDir = name: bins:
+    mkBinLink name ( linkFarmFromDrvs ( name + "-bins" ) bins );
 
 
 /* -------------------------------------------------------------------------- */
