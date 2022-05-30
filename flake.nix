@@ -146,9 +146,16 @@
           outputs = ["out"];
         } );
 
+        opensslStatic = pkgsFor.pkgsStatic.openssl.overrideAttrs ( prev: {
+          NIX_CFLAGS_COMPILE = prev.NIX_CFLAGS_COMPILE ++ ["-fPIE"];
+          configureFlags =
+            builtins.filter ( f: f != "shared" ) prev.configureFlags;
+        } );
+
         binsStaticDeps =
           let cxxLinkFlags = [
-                "-Bstatic"
+                "-nostdlib"
+                "-static-pie"
                 ( utils supportStatic ).opt.static.outPath
                 ( libgourou supportStatic ).archives.opt.static.outPath
                 ( libupdfparser supportStatic ).archives.opt.static.outPath

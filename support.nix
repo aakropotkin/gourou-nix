@@ -146,7 +146,7 @@ in rec {
     mkArchive name ( map ( compileCxx flags ) files );
 
   compileCxxStaticArchive = name: flags: files:
-    compileCxxArchive name ( flags ++ ["-static"] ) files;
+    compileCxxArchive name ( flags ++ ["-static-pie" "-fPIE"] ) files;
 
   compileCxxPicArchive = name: flags: files:
     compileCxxArchive name ( flags ++ ["-shared" "-fPIC"] ) files;
