@@ -46,6 +46,25 @@ let
 
 /* -------------------------------------------------------------------------- */
 
+  findFileWithSuffix = dir: sfx:
+    let
+      fs = builtins.readDir dir;
+      slen = builtins.stringLength sfx;
+      suffstring = l: str: let sl = builtins.stringLength str; in
+        builtins.substring ( sl - l ) sl str;
+      hasSfx = s: ( suffstring slen s ) == sfx;
+      matches = builtins.filter hasSfx ( builtins.attrNames fs );
+    in ( toString dir ) + "/" + ( builtins.head matches );
+
+
+/* -------------------------------------------------------------------------- */
+
+  cxxBin = findFileWithSuffix "${stdenv.cc}/bin" "g++";
+  arBin  = findFileWithSuffix "${stdenv.cc.bintools.bintools_bin}/bin" "ar";
+
+
+/* -------------------------------------------------------------------------- */
+
 in rec {
 
   inherit linkFarmFromDrvs stdenv listFiles;
@@ -60,7 +79,7 @@ in rec {
     name = objName file;
     inherit (stdenv) system;
     inherit flags file;
-    builder = "${stdenv.cc}/bin/g++";
+    builder = cxxBin;
     args = [
       "-c" ( toString file )
       "-o" ( builtins.placeholder "out" )
@@ -100,7 +119,7 @@ in rec {
     inherit earlyCxxLinkFlags earlyLdFlags;
     inherit defaultCxxLinkFlags defaultLdFlags;
     inherit cxxLinkFlags ldFlags;
-    builder = "${stdenv.cc}/bin/g++";
+    builder = cxxBin;
     args = earlyCxxLinkFlags' ++ earlyLdFlags' ++
            defaultCxxLinkFlags' ++ defaultLdFlags' ++
            ["-o" ( builtins.placeholder "out" )] ++
@@ -114,7 +133,7 @@ in rec {
   mkArchive = name: files: derivation {
     inherit name files;
     inherit (stdenv) system;
-    builder = "${stdenv.cc.bintools.bintools_bin}/bin/ar";
+    builder = arBin;
     args = ["crs" ( builtins.placeholder "out" )] ++ ( map toString files );
     preferLocalBuild = true;
   };
@@ -212,7 +231,7 @@ in rec {
   in derivation {
     inherit name soname picArchive;
     inherit (stdenv) system;
-    builder = "${stdenv.cc}/bin/g++";
+    builder = cxxBin;
     args = earlyCxxLinkFlags' ++ earlyLdFlags' ++
            defaultCxxLinkFlags' ++ defaultLdFlags' ++ [
              "-o" ( builtins.placeholder "out" )

@@ -44,6 +44,9 @@
         support = import ./support.nix {
           inherit (pkgsFor) stdenv linkFarmFromDrvs;
         };
+        supportStatic = import ./support.nix {
+          inherit (pkgsFor.pkgsStatic) stdenv linkFarmFromDrvs;
+        };
 
         base64 = derivation {
           name = "base64";
@@ -56,12 +59,12 @@
           ''];
         };
 
-        libupdfparser = support.mkCxxLibs {
+        libupdfparser = supp: supp.mkCxxLibs {
           name = "libupdfparser";
           src = updfparser-src;
         };
 
-        libgourou = support.mkCxxLibs {
+        libgourou = supp: supp.mkCxxLibs {
           name = "libgourou";
           src = gourou-src;
           files = [
@@ -79,11 +82,11 @@
             "${pugixml-src}/src"
             "${updfparser-src}/include"
           ];
-          optArgOverride = support.mkLibOverride libupdfparser "opt";
-          dbgArgOverride = support.mkLibOverride libupdfparser "dbg";
+          optArgOverride = supp.mkLibOverride libupdfparser "opt";
+          dbgArgOverride = supp.mkLibOverride libupdfparser "dbg";
         };
 
-        utils = support.mkCxxArchives {
+        utils = supp: supp.mkCxxArchives {
           name = "util";
           includes = [
             "${gourou-src}/include"
@@ -99,12 +102,12 @@
           ];
         };
 
-        toolObjs =
+        toolObjs = supp:
           let
             # Yank flags from arbitrary object file in utils.
-            flags = ( builtins.head ( utils.opt.static.files ) ).flags;
+            flags = ( builtins.head ( ( utils supp ).opt.static.files ) ).flags;
             compileMain = f:
-              support.compileCxx flags "${gourou-src}/utils/${f}.cpp";
+              supp.compileCxx flags "${gourou-src}/utils/${f}.cpp";
             binObjs = map ( b: { name = b; value = compileMain b; } ) [
               "acsmdownloader"
               "adept_activate"
@@ -113,8 +116,8 @@
             ];
           in map ( x: x.value ) binObjs;
 
-        mkBin = cxxLinkFlags': obj:
-          support.linkCxxExecutable {
+        mkBin = supp: cxxLinkFlags': obj:
+          supp.linkCxxExecutable {
             name = builtins.head ( builtins.split "\\." obj.name );
             files = [obj.outPath];
             cxxLinkFlags = ["-Wl,--as-needed"] ++ cxxLinkFlags';
@@ -122,26 +125,33 @@
 
         binsDsoDeps =
           let cxxLinkFlags = [
-                utils.opt.static.outPath
-                libgourou.archives.opt.static.outPath
-                libupdfparser.archives.opt.static.outPath
+                ( utils support ).opt.static.outPath
+                ( libgourou support ).archives.opt.static.outPath
+                ( libupdfparser support ).archives.opt.static.outPath
                 "${pkgsFor.libzip}/lib/libzip.so"
                 "${pkgsFor.zlib}/lib/libz.so"
                 "${pkgsFor.openssl.out}/lib/libcrypto.so"
                 "${pkgsFor.curl.out}/lib/libcurl.so"
               ];
-          in map ( mkBin cxxLinkFlags ) toolObjs;
+          in map ( mkBin support cxxLinkFlags ) ( toolObjs support );
 
-        libzipStatic = pkgsFor.libzip.overrideAttrs ( prev: {
-          cmakeFlags = ( prev.cmakeFlags or [] ) ++ ["-DBUILD_SHARED_LIBS=OFF"];
+        libzipStatic = pkgsFor.pkgsStatic.libzip.overrideAttrs ( prev: {
+          cmakeFlags = ( prev.cmakeFlags or [] ) ++ [
+            "-DBUILD_SHARED_LIBS=OFF"
+            "-DBUILD_EXAMPLES=OFF"
+            "-DBUILD_DOC=OFF"
+            "-DBUILD_TOOLS=OFF"
+            "-DBUILD_REGRESS=OFF"
+          ];
+          outputs = ["out"];
         } );
 
         binsStaticDeps =
           let cxxLinkFlags = [
-                "-Wl,-Bstatic"
-                utils.opt.static.outPath
-                libgourou.archives.opt.static.outPath
-                libupdfparser.archives.opt.static.outPath
+                "-Bstatic"
+                ( utils supportStatic ).opt.static.outPath
+                ( libgourou supportStatic ).archives.opt.static.outPath
+                ( libupdfparser supportStatic ).archives.opt.static.outPath
                 "-Wl,--start-group"
                 "${libzipStatic}/lib/libzip.a"
                 "${pkgsFor.pkgsStatic.libnghttp2}/lib/libnghttp2.a"
@@ -159,11 +169,12 @@
                 "-static-libstdc++"
                 "-Wl,--end-group"
               ];
-          in map ( mkBin cxxLinkFlags ) toolObjs;
+          in map ( mkBin supportStatic cxxLinkFlags )
+                 ( toolObjs supportStatic );
 
       in rec {
         gourou = support.mkBinDir "gourou" binsDsoDeps;
-        gourouStatic = support.mkBinDir "gourou-static" binsStaticDeps;
+        gourouStatic = supportStatic.mkBinDir "gourou-static" binsStaticDeps;
         inherit libzipStatic;
         default = gourouStatic;
       }
