@@ -16,6 +16,22 @@
         "url": "https://gist.github.com/f0fd86b6c73063283afe550bc5d77594.git"
       }
     },
+    "flake-utils": {
+      "locked": {
+        "lastModified": 1652776076,
+        "narHash": "sha256-gzTw/v1vj4dOVbpBSJX4J0DwUR6LIyXo7/SuuTJp1kM=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "04c1b180862888302ddfb2e3ad9eaa63afc60cf8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "ref": "master",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
     "gourou-src": {
       "flake": false,
       "locked": {
@@ -69,11 +85,11 @@
     "root": {
       "inputs": {
         "base64-src": "base64-src",
+        "flake-utils": "flake-utils",
         "gourou-src": "gourou-src",
         "nixpkgs": "nixpkgs",
         "pugixml-src": "pugixml-src",
-        "updfparser-src": "updfparser-src",
-        "utils": "utils"
+        "updfparser-src": "updfparser-src"
       }
     },
     "updfparser-src": {
@@ -91,22 +107,6 @@
         "ref": "master",
         "type": "git",
         "url": "git://soutade.fr/updfparser.git"
-      }
-    },
-    "utils": {
-      "locked": {
-        "lastModified": 1652776076,
-        "narHash": "sha256-gzTw/v1vj4dOVbpBSJX4J0DwUR6LIyXo7/SuuTJp1kM=",
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "rev": "04c1b180862888302ddfb2e3ad9eaa63afc60cf8",
-        "type": "github"
-      },
-      "original": {
-        "owner": "numtide",
-        "ref": "master",
-        "repo": "flake-utils",
-        "type": "github"
       }
     }
   },

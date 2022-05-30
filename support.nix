@@ -1,17 +1,20 @@
 { stdenv, linkFarmFromDrvs }:
 let
 
-  baseName' = p: with builtins;
+  baseName = p: with builtins;
     let
-      p' = unsafeDiscardStringContext ( baseNameOf p );
-      fromDrvName = head ( match "[^-]*-(.*)" p' );
-      hasSlash = ( dirOf p' ) != ".";
-      handleString =
-        if ( hasSlash && ( hasContext p ) ) then fromDrvName else p';
-    in if ( isPath p ) then p' else if ( isString p ) then handleString else
-        throw "Cannot take basename of type: ${typeOf p}";
+      bp = baseNameOf ( toString p );
+      isBaseName = mb: ( baseNameOf mb ) == mb;
+      isNixStorePath = nsp:
+        let prefix = "/nix/store/"; plen = stringLength prefix; in
+        prefix == ( substring 0 plen ( toString nsp ) );
+      removeNixStorePrefix = nsp:
+        let m = match "/nix/store/[^-]+-(.*)" ( toString nsp ); in
+        if m == null then nsp else ( head m );
+    in baseNameOf ( removeNixStorePrefix ( p ) );
+  baseName' = p: builtins.unsafeDiscardStringContext ( baseName p );
 
-  baseNameOfDropExt = p: builtins.head ( builtins.split "." ( baseName' p ) );
+  baseNameOfDropExt = p: builtins.head ( builtins.split "\\." ( baseName' p ) );
   objName = file: ( baseNameOfDropExt file ) + ".o";
   objNames = sources: builtins.concatStringsSep " " ( map objName sources );
 
@@ -48,7 +51,7 @@ in rec {
 /* -------------------------------------------------------------------------- */
 
   compileCxx = flags: file: derivation {
-    name = baseName' file;
+    name = objName file;
     inherit (stdenv) system;
     inherit flags file;
     builder = "${stdenv.cc}/bin/g++";

@@ -1,7 +1,7 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    utils.url = "github:numtide/flake-utils/master";
+    flake-utils.url = "github:numtide/flake-utils/master";
     gourou-src = {
       #url   = "github:BentonEdmondson/the-scroll/main";
       url   = "git://soutade.fr/libgourou.git";
@@ -28,7 +28,7 @@
   outputs =
     { self
     , nixpkgs
-    , utils
+    , flake-utils
     , gourou-src
     , updfparser-src
     , base64-src
@@ -36,7 +36,7 @@
     }:
     let
       supportedSystems = ["x86_64-linux"];
-      systemsMap = utils.lib.eachSystemMap supportedSystems;
+      systemsMap = flake-utils.lib.eachSystemMap supportedSystems;
     in {
       packages = systemsMap ( system:
         let
@@ -44,21 +44,20 @@
           support = import ./support.nix {
             inherit (pkgsFor) stdenv linkFarmFromDrvs;
           };
-          libupdfparser = support.mkCxxLibs {
-            name = "libupdfparser";
-            src = updfparser-src;
-          };
-          updfOv = support.mkLibOverride libupdfparser;
-        in rec {
+
           base64 = import ./base64.nix {
             inherit system;
             inherit (pkgsFor) bash coreutils;
             src = base64-src;
           };
 
-          updfparser = libupdfparser.all;
+          libupdfparser = support.mkCxxLibs {
+            name = "libupdfparser";
+            src = updfparser-src;
+          };
+          updfOv = support.mkLibOverride libupdfparser;
 
-          libgourou = ( support.mkCxxLibs {
+          libgourou = support.mkCxxLibs {
             name = "libgourou";
             src = gourou-src;
             files = [
@@ -78,9 +77,36 @@
             ];
             optArgOverride = updfOv "opt";
             dbgArgOverride = updfOv "dbg";
-          } ).all;
+          };
+          gourouOv = support.mkLibOverride libgourou;
 
-          default = libgourou;
+          utils = support.mkCxxArchives {
+            name = "util";
+            includes = ["${gourou-src}/include" "${pugixml-src}/src"];
+            files = [
+              "${gourou-src}/utils/drmprocessorclientimpl.cpp"
+              "${gourou-src}/utils/utils_common.cpp"
+            ];
+          };
+
+          toolObjs =
+            let
+              # Yank flags from arbitrary object file in utils.
+              flags = ( builtins.head ( utils.opt.static.files ) ).flags;
+              compileMain = f:
+                support.compileCxx flags "${gourou-src}/utils/${f}.cpp";
+              bins = map ( b: { name = b; value = compileMain b; } ) [
+                "acsmdownloader"
+                "adept_activate"
+                "adept_remove"
+                "adept_loan_mgt"
+              ];
+            in builtins.listToAttrs bins;
+
+        in rec {
+          inherit utils toolObjs;
+          gourou = libgourou.all; # FIXME
+          default = gourou;
         }
       );
     };
