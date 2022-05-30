@@ -148,7 +148,7 @@
 
         binsStaticDeps =
           let cxxLinkFlags = [
-                "-Bstatic"
+                "-static"
                 ( utils supportStatic ).opt.static.outPath
                 ( libgourou supportStatic ).archives.opt.static.outPath
                 ( libupdfparser supportStatic ).archives.opt.static.outPath
