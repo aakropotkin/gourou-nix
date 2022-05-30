@@ -82,7 +82,14 @@
 
           utils = support.mkCxxArchives {
             name = "util";
-            includes = ["${gourou-src}/include" "${pugixml-src}/src"];
+            includes = [
+              "${gourou-src}/include"
+              "${pugixml-src}/src"
+              "${pkgsFor.openssl.dev}/include"
+              "${pkgsFor.curl.dev}/include"
+              "${pkgsFor.zlib.dev}/include"
+              "${pkgsFor.libzip.dev}/include"
+            ];
             files = [
               "${gourou-src}/utils/drmprocessorclientimpl.cpp"
               "${gourou-src}/utils/utils_common.cpp"
@@ -105,11 +112,22 @@
 
           mkBin = deps: obj:
             support.linkCxxExecutable {
-              inherit (obj) name;
-              files = [obj.outPath] ++ deps;
+              name = builtins.head ( builtins.split "\\." obj.name );
+              files = [obj.outPath];
+              cxxLinkFlags = ["-Wl,--as-needed"] ++ deps;
             };
 
-          bins = map ( mkBin [utils.opt.static.outPath] ) toolObjs;
+          bins =
+            let deps = [
+                  utils.opt.static.outPath
+                  libgourou.archives.opt.static.outPath
+                  libupdfparser.archives.opt.static.outPath
+                  "${pkgsFor.libzip}/lib/libzip.so"
+                  "${pkgsFor.zlib}/lib/libz.so"
+                  "${pkgsFor.openssl.out}/lib/libcrypto.so"
+                  "${pkgsFor.curl.out}/lib/libcurl.so"
+                ];
+            in map ( mkBin deps ) toolObjs;
 
         in rec {
           gourou = pkgsFor.linkFarmFromDrvs "gourou-utils" bins;
