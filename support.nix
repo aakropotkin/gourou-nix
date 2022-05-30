@@ -282,4 +282,18 @@ in rec {
 
 /* -------------------------------------------------------------------------- */
 
+  mkBinLink = name: path: derivation {
+    inherit name;
+    inherit (stdenv) system;
+    builder = "${stdenv.shell}";
+    PATH = "${stdenv.cc.coreutils_bin}/bin";
+    args = ["-c" ''mkdir -p "$out"; ln -s ${path} "$out/bin"''];
+  };
+
+  mkBinDir = name: bins:
+    mkBinLink name ( linkFarmFromDrvs ( name + "-bins" ) bins );
+
+
+/* -------------------------------------------------------------------------- */
+
 }
