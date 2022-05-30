@@ -110,15 +110,15 @@
               ];
             in map ( x: x.value ) binObjs;
 
-          mkBin = deps: obj:
+          mkBin = cxxLinkFlags': obj:
             support.linkCxxExecutable {
               name = builtins.head ( builtins.split "\\." obj.name );
               files = [obj.outPath];
-              cxxLinkFlags = ["-Wl,--as-needed"] ++ deps;
+              cxxLinkFlags = ["-Wl,--as-needed"] ++ cxxLinkFlags';
             };
 
-          bins =
-            let deps = [
+          binsDsoDeps =
+            let cxxLinkFlags = [
                   utils.opt.static.outPath
                   libgourou.archives.opt.static.outPath
                   libupdfparser.archives.opt.static.outPath
@@ -127,10 +127,32 @@
                   "${pkgsFor.openssl.out}/lib/libcrypto.so"
                   "${pkgsFor.curl.out}/lib/libcurl.so"
                 ];
-            in map ( mkBin deps ) toolObjs;
+            in map ( mkBin cxxLinkFlags ) toolObjs;
+
+          mkBinLink = name: path: derivation {
+            inherit name system;
+            builder = "${pkgsFor.bash}/bin/bash";
+            PATH = "${pkgsFor.coreutils}/bin";
+            args = ["-c" ''mkdir -p "$out"; ln -s ${path} "$out/bin"''];
+          };
+
+          mkBinDir = name: bins:
+            mkBinLink name ( pkgsFor.linkFarmFromDrvs ( name + "-bins" ) bins );
+
+          binsStaticDeps =
+            let cxxLinkFlags = [
+                  utils.opt.static.outPath
+                  libgourou.archives.opt.static.outPath
+                  libupdfparser.archives.opt.static.outPath
+                  #"${pkgsFor.libzip}/lib/libzip.so"
+                  #"${pkgsFor.zlib}/lib/libz.so"
+                  #"${pkgsFor.openssl.out}/lib/libcrypto.so"
+                  #"${pkgsFor.curl.out}/lib/libcurl.so"
+                ];
+            in map ( mkBin cxxLinkFlags ) toolObjs;
 
         in rec {
-          gourou = pkgsFor.linkFarmFromDrvs "gourou-utils" bins;
+          gourou = mkBinDir "gourou" binsDsoDeps;
           default = gourou;
         }
       );
