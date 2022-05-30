@@ -175,7 +175,6 @@
       in rec {
         gourou = support.mkBinDir "gourou" binsDsoDeps;
         gourouStatic = supportStatic.mkBinDir "gourou-static" binsStaticDeps;
-        inherit libzipStatic;
         default = gourouStatic;
       }
     );
