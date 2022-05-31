@@ -8,8 +8,7 @@
     flake = false;
   };
   inputs.base64-src = {
-    url = "git+https://gist.github.com/f0fd86b6c73063283afe550bc5d77594.git";
-    flake = false;
+    url = "git+https://gist.github.com/f0fd86b6c73063283afe550bc5d77594.git"; flake = false;
   };
   inputs.updfparser-src = {
     url = "git://soutade.fr/updfparser";
@@ -64,9 +63,12 @@
           passAsFile = ["pkgConfigDef"];
           installPhase = ''
             runHook preInstall
-            mkdir -p $out/lib $out/lib/pkgconfig $dev
+            mkdir -p $out/lib $out/lib/pkgconfig
             mv include $out/
             mv -- libupdfparser.a $out/lib/
+            substitute "$pkgConfigDefPath"                 \
+                       "$out/lib/pkgconfig/updfparser.pc"  \
+              --subst-var out
             runHook postInstall
           '';
         };
@@ -89,9 +91,11 @@
           nativeBuildInputs = with pkgsFor.pkgsStatic; [pkg-config];
           buildInputs = ( with pkgsFor.pkgsStatic; [
             openssl.dev
-            qt5.qtbase.dev
+            openssl.out
+#            qt5.qtbase.dev
             libzipStatic.out
             curl.dev
+            curl.out
           ] ) ++ [( updfparser.overrideAttrs ( _: { inherit enableDebug; } ) )];
 
           enableDebug = false;
@@ -107,7 +111,6 @@
           makeFlags = ["BUILD_SHARED=0" "BUILD_STATIC=1" "STATIC_UTILS=1"];
 
           CXXFLAGS = [
-            "-static"
             "-Wall"
             "-I./include"
             "-fkeep-inline-functions"
@@ -127,9 +130,14 @@
             CXXFLAGS+=" -I$PWD/include"
             CXXFLAGS+=" -I$PWD/lib"
             CXXFLAGS+=" -I$PWD/lib/pugixml/src"
+            CXXFLAGS+=" $( pkg-config --cflags openssl)"
+            CXXFLAGS+=" $( pkg-config --cflags libcurl)"
             makeFlagsArray+=( CXXFLAGS="$CXXFLAGS" )
             updfparser_LIBS+="$( pkg-config --variable=libdir updfparser; )"
             makeFlagsArray+=( UPDFPARSERLIB="$updfparser_LIBS/libupdfparser.a" )
+            LDFLAGS+=" $( pkg-config --static --libs libcurl )"
+            LDFLAGS+=" $( pkg-config --static --libs openssl )"
+            makeFlagsArray+=( LDFLAGS="$LDFLAGS" )
             runHook postConfigure
           '';
 
